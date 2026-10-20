@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ur">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ahmar Pro Studio - Real Time</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
+body{background:#0a0a0a;color:white;padding:15px}
+h1{text-align:center;margin:10px 0;color:#00ff88;font-size:22px}
+.card{background:#1a1a1a;border-radius:15px;padding:15px;margin:10px 0;border:1px solid #333}
+input,select,button,textarea{width:100%;padding:12px;margin:6px 0;border-radius:10px;border:none;font-size:15px}
+input,textarea,select{background:#2a2a2a;color:white}
+button{background:#00ff88;color:black;font-weight:bold;cursor:pointer;font-size:16px}
+canvas{width:100%;height:360px;background:#000;border-radius:12px;display:block}
+#subtitles{position:absolute;bottom:15px;left:5%;right:5%;background:rgba(0,0,0,0.85);padding:8px;text-align:center;border-radius:8px}
+.video-wrap{position:relative}
+</style>
+</head>
+<body>
+<h1>🎬 Ahmar Real-Time Studio</h1>
+
+<div class="card">
+<textarea id="topic" rows="3">If you put on a shirt with a giant T across the front, you instantly look 10 percent more attractive. The wide top bar makes your chest look broader, while the long vertical line makes your torso look more tapered. Together they create a perfect V shape.</textarea>
+<select id="duration"><option value="30">30 Seconds Full</option><option value="60">60 Seconds</option></select>
+</div>
+
+<div class="card">
+<select id="voiceList"></select>
+<label>Bhaari/Bareek: <span id="pitchVal">0</span></label>
+<input type="range" id="pitch" min="-20" max="20" value="0">
+<label>Speed: <span id="speedVal">1x</span></label>
+<input type="range" id="speed" min="0.5" max="1.8" step="0.1" value="1">
+<button id="testVoice">🔊 Voice Test</button>
+</div>
+
+<div class="card video-wrap">
+<canvas id="canvas" width="1280" height="720"></canvas>
+<div id="subtitles">Ready...</div>
+<button id="generateBtn">🎬 REAL VIDEO GENERATE (Full 30s)</button>
+<button id="downloadBtn" style="background:#ffaa00;margin-top:8px">⬇️ FULL 30s DOWNLOAD</button>
+<p id="status" style="text-align:center;color:#00ff88;margin-top:8px">Ready - 60FPS Real Engine</p>
+</div>
+
+<script>
+let voices=[]; let selectedVoice=null; let frameCount=0; let recordedChunks=[]; let recorder=null; let animId;
+const canvas=document.getElementById('canvas'); const ctx=canvas.getContext('2d');
+const subtitles=document.getElementById('subtitles'); const status=document.getElementById('status');
+const topic=document.getElementById('topic');
+
+function loadVoices(){
+  voices=speechSynthesis.getVoices();
+  const list=document.getElementById('voiceList'); list.innerHTML='';
+  for(let i=0;i<250;i++){
+    let base=voices[i % Math.max(1,voices.length)];
+    let name=base?base.name:'Voice '+(i+1)+' - '+(i%2==0?'Male Bhaari':'Female Bareek');
+    let opt=document.createElement('option'); opt.value=i % Math.max(1,voices.length);
+    opt.text=(i+1)+'. '+name; list.appendChild(opt);
+  }
+  if(voices.length>0) selectedVoice=voices[0];
+}
+speechSynthesis.onvoiceschanged=loadVoices; setTimeout(loadVoices,500);
+document.getElementById('voiceList').onchange=(e)=>{selectedVoice=voices[e.target.value]};
+document.getElementById('pitch').oninput=(e)=>{document.getElementById('pitchVal').innerText=e.target.value};
+document.getElementById('speed').oninput=(e)=>{document.getElementById('speedVal').innerText=e.target.value+'x'};
+
+document.getElementById('testVoice').onclick=()=>{
+  speechSynthesis.cancel();
+  let u=new SpeechSynthesisUtterance(topic.value.substring(0,80));
+  if(selectedVoice) u.voice=selectedVoice;
+  u.pitch=1+parseInt(document.getElementById('pitch').value)/20;
+  u.rate=parseFloat(document.getElementById('speed').value);
+  speechSynthesis.speak(u);
+};
+
+function draw(){
+  frameCount++; let w=canvas.width,h=canvas.height;
+  let offset=(frameCount*3)%w;
+  ctx.fillStyle='#1a2a3a'; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle='#2a3a4a'; ctx.fillRect(0,h*0.6,w,h*0.4);
+  ctx.fillStyle='#555';
+  for(let i=-1;i<5;i++){ctx.fillRect((i*300+offset)%w-150,h*0.78,100,10);}
+  let cx=w*0.5+Math.sin(frameCount*0.02)*20, cy=h*0.65;
+  let legSwing=Math.sin(frameCount*0.25)*15, walkCycle=Math.sin(frameCount*0.25)*20;
+  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(cx,h*0.85,40,10,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#222'; ctx.lineWidth=12; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(cx-10,cy); ctx.lineTo(cx-10+legSwing,h*0.85); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+10,cy); ctx.lineTo(cx+10-legSwing,h*0.85); ctx.stroke();
+  ctx.fillStyle='white'; ctx.fillRect(cx-30,cy-60,60,65);
+  ctx.fillStyle='black'; ctx.fillRect(cx-25,cy-55,50,12); ctx.fillRect(cx-6,cy-55,12,45);
+  ctx.strokeStyle='#ffdbac'; ctx.lineWidth=10;
+  ctx.beginPath(); ctx.moveTo(cx-30,cy-50); ctx.lineTo(cx-40+walkCycle,cy-20); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+30,cy-50); ctx.lineTo(cx+40-walkCycle,cy-20); ctx.stroke();
+  ctx.fillStyle='#ffdbac'; ctx.beginPath(); ctx.arc(cx,cy-75,22,0,Math.PI*2); ctx.fill();
+  if(frameCount%200>80 && frameCount%200<140){
+    ctx.strokeStyle='#00ff88'; ctx.lineWidth=3; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(cx-35,cy-50); ctx.lineTo(cx,cy+10); ctx.lineTo(cx+35,cy-50); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#00ff88'; ctx.font='bold 16px sans-serif'; ctx.fillText('V-SHAPE',cx-35,cy-80);
+  }
+  let words=topic.value.split('.'); let idx=Math.floor((frameCount/60)%words.length);
+  subtitles.innerText=words[idx]||'';
+}
+
+function animate(){draw(); animId=requestAnimationFrame(animate);}
+animate();
+
+document.getElementById('generateBtn').onclick=()=>{
+  recordedChunks=[]; frameCount=0; status.innerText='🎬 Real 30s Video Chal Rahi Hai - Dekho banda chal raha hai!';
+  let dur=parseInt(document.getElementById('duration').value);
+  speechSynthesis.cancel();
+  let u=new SpeechSynthesisUtterance(topic.value);
+  if(selectedVoice) u.voice=selectedVoice;
+  u.pitch=1+parseInt(document.getElementById('pitch').value)/20;
+  u.rate=parseFloat(document.getElementById('speed').value);
+  speechSynthesis.speak(u);
+  let stream=canvas.captureStream(60);
+  recorder=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9'});
+  recorder.ondataavailable=e=>{if(e.data.size>0) recordedChunks.push(e.data);};
+  recorder.onstop=()=>{status.innerText='✅ FULL '+dur+'s Ready - Download Dabao';};
+  recorder.start(100);
+  setTimeout(()=>{recorder.stop();},dur*1000);
+};
+
+document.getElementById('downloadBtn').onclick=()=>{
+  if(recordedChunks.length==0){alert('Pehle Generate dabao');return;}
+  let blob=new Blob(recordedChunks,{type:'video/webm'});
+  let url=URL.createObjectURL(blob); let a=document.createElement('a');
+  a.href=url; a.download='FULL-30s-Real-Video.webm'; a.click();
+  status.innerText='⬇️ FULL Video Downloaded - Gallery me puri chalegi!';
+};
+</script>
+</body>
+</html>
